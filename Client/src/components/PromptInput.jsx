@@ -32,8 +32,8 @@ const PromptInput = ({ onSubmit, onFileChange, onMicClick, loading = false, plac
         setSubmitting(true);
         setError("");
         try {
-            await onSubmit(prompt);
-            setValue("");
+            const result = await onSubmit(prompt);
+            if (result !== false) setValue("");
         } catch (err) {
             setError(err?.response?.data?.error || err?.message || "Unable to submit. Please try again.");
         } finally {

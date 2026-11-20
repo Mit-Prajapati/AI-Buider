@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom";
@@ -29,19 +29,27 @@ export function AppcontextProvider({ children }) {
     const [generatingProject, setGeneratingProject] = useState(false);
     const [activeFile, setActiveFile] = useState("/App.js");
     const [showCode, setShowCode] = useState(false);
+    const projectsRequest = useRef(0);
+
+    const setSessionUser = useCallback((nextUser) => {
+        projectsRequest.current += 1;
+        setUser(nextUser);
+        setProjects([]);
+        setLoadingProjects(Boolean(nextUser));
+    }, []);
 
     // Auth ACTIONS 
 
     const CheckSession = useCallback(async () => {
         try {
             const { data } = await api.get("/api/auth/me");
-            setUser(data.user);
+            setSessionUser(data.user);
         } catch (error) {
-            setUser(null)
+            setSessionUser(null)
         } finally {
             setLoadingUser(false)
         }
-    }, [])
+    }, [setSessionUser])
 
     useEffect(() => {
         CheckSession()
@@ -50,7 +58,7 @@ export function AppcontextProvider({ children }) {
     const login = async (email, password) => {
         try {
             const { data } = await api.post("/api/auth/login", { email, password });
-            setUser(data.user)
+            setSessionUser(data.user)
             toast.success("WelCome Back ")
         } catch (err) {
             console.error("Login Failed:", err);
@@ -64,7 +72,7 @@ export function AppcontextProvider({ children }) {
     const register = async (name, email, password) => {
         try {
             const { data } = await api.post("/api/auth/register", { name, email, password });
-            setUser(data.user);
+            setSessionUser(data.user);
             toast.success("Account created successfully");
         } catch (err) {
             const errMsg = err?.response?.data?.error || "Registration failed. Please try again.";
@@ -78,9 +86,11 @@ export function AppcontextProvider({ children }) {
 
 
     const logout = async () => {
+        projectsRequest.current += 1;
+        setLoadingProjects(false);
         try {
             await api.post("/api/auth/logout");
-            setUser(null);
+            setSessionUser(null);
             setProjects([]);
             setActiveProject(null);
             setActiveFile("/App.js");
@@ -98,16 +108,19 @@ export function AppcontextProvider({ children }) {
 
     const loadProjects = useCallback(async () => {
         if (!user) return;
+        const request = ++projectsRequest.current;
+        setLoadingProjects(true);
         try {
             const { data } = await api.get("/api/projects");
-            setProjects(data);
+            if (request === projectsRequest.current) setProjects(data);
         }
         catch (error) {
+            if (request !== projectsRequest.current) return;
             console.error("Failed to load projects:", error);
             toast.error("Failed to load projects. Please try again.");
         }
         finally {
-            setLoadingProjects(false);
+            if (request === projectsRequest.current) setLoadingProjects(false);
         }
     }, [user]);
 
@@ -174,16 +187,18 @@ export function AppcontextProvider({ children }) {
 
     const handleGenerate = useCallback(
         async (prompt) => {
-            if (!user) return;
+            if (!user) return false;
             setGeneratingProject(true);
             try {
                 const { data } = await api.post("/api/projects", { prompt });
                 toast.success("Project generation started. This may take a few minutes.");
                 navigate(`/builder/${data._id}`);
+                return true;
             }
             catch (error) {
                 console.error("Failed to generate project:", error);
                 toast.error(error?.response?.data?.error || "Failed to generate project. Please try again.");
+                return false;
             }
             finally {
                 setGeneratingProject(false);

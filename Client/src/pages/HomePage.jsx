@@ -2,13 +2,12 @@ import { useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import PromptInput from '../components/PromptInput'
 import { homeTags } from '../assets/assets'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ArrowRightIcon, ClockIcon, TrashIcon } from 'lucide-react'
 import moment from 'moment'
 
 const HomePage = () => {
 
-  const navigate = useNavigate()
 
   const { user, projects, loadingProjects, generatingProject, loadProjects, handleGenerate, handleDelete, logout } = useAppContext()
 
@@ -115,7 +114,9 @@ const HomePage = () => {
               </div>
               <div className='space-y-2 max-h-[80vh] overflow-y-auto pr-1'>
                 {projects.map((project) => (
-                  <div key={project._id} className='group flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200 transition hover:bg-white/10' onClick={() => navigate(`/builder/${project._id}`)}>
+                  <div key={project._id} className='group relative flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200 transition hover:bg-white/10'>
+
+                    <Link to={`/builder/${project._id}`} className='flex min-w-0 flex-1 items-center gap-10 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white'>
 
                     <div className="flex-1 min-w-0 text-left">
 
@@ -136,14 +137,15 @@ const HomePage = () => {
 
 
                     </div>
-                    <div className='flex shrink-0 items-center gap-2'>
+                      <ArrowRightIcon size={14} className="shrink-0 text-zinc-200 group-hover:text-white" />
+                    </Link>
+                    <div className='absolute right-10 flex shrink-0 items-center gap-2'>
                       <button type='button' aria-label={`Delete ${project.name}`} onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(project._id)
                       }} className=' p-1.5 rounded-md text-zinc-200 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'>
                         <TrashIcon size={14} className="text-zinc-200 group-hover:text-white" />
                       </button>
-                      <ArrowRightIcon size={14} className="shrink-0 text-zinc-200 group-hover:text-white" />
 
 
 
