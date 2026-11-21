@@ -1,8 +1,8 @@
-import { BotIcon, BotMessageSquare, BotMessageSquareIcon, UserIcon } from 'lucide-react'
+import { BotIcon, BotMessageSquareIcon, UserIcon } from 'lucide-react'
 import React, { useEffect, useRef } from 'react'
 import PromptInput from './PromptInput'
 
-const ChatPannel = ({ messages, onSend, loading }) => {
+const ChatPanel = ({ messages, onSend, loading }) => {
 
     const bottomref = useRef(null)
 
@@ -10,7 +10,7 @@ const ChatPannel = ({ messages, onSend, loading }) => {
         bottomref.current?.scrollIntoView({ behavior: "auto" })
     }, [messages, loading])
     return (
-        <div className='flex h-full flex-col bg-white m-3 '>
+        <div className='flex h-full min-h-0 flex-col bg-white p-3'>
             {/* Messages */}
             <div className='min-h-0 flex-1 overflow-y-auto p-4 '>
                 {messages.length === 0 && (
@@ -85,4 +85,4 @@ const ChatPannel = ({ messages, onSend, loading }) => {
     )
 }
 
-export default ChatPannel
+export default ChatPanel

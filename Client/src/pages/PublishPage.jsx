@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../api/api'
 import Loading from '../components/Loading'
-import PriviewPannel from '../components/PriviewPannel'
+import PreviewPanel from '../components/PreviewPanel'
 
 const PublishPage = () => {
   const { id } = useParams();
@@ -25,7 +25,7 @@ const PublishPage = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <PriviewPannel files={result.project.files} projectId={id} />
+      <PreviewPanel files={result.project.files} projectId={id} />
     </div>
   )
 }

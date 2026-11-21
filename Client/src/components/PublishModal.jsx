@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { XIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const PublishDialog = ({ url, onClose }) => {
+const PublishModal = ({ url, onClose }) => {
   const dialogRef = useRef(null);
   const linkRef = useRef(null);
 
@@ -15,7 +15,7 @@ const PublishDialog = ({ url, onClose }) => {
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success('Public link copied to clipboard!');
+      toast.success('Local publish link copied to clipboard!');
     } catch {
       if (!linkRef.current) return;
       linkRef.current.focus();
@@ -41,8 +41,8 @@ const PublishDialog = ({ url, onClose }) => {
       <button type="button" onClick={onClose} aria-label="Close publish dialog" className="absolute right-3 top-3 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-zinc-900">
         <XIcon size={16} />
       </button>
-      <h2 id="publish-title" className="pr-6 text-lg font-semibold">Your website is live!</h2>
-      <p id="publish-description" className="mt-1 text-sm text-zinc-500">View your published website using the link below.</p>
+      <h2 id="publish-title" className="pr-6 text-lg font-semibold">Local publish ready</h2>
+      <p id="publish-description" className="mt-1 text-sm text-zinc-500">Open your website in this browser using the link below. Public hosting is not connected yet.</p>
       <label htmlFor="published-link" className="mt-6 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Published link</label>
       <input ref={linkRef} id="published-link" value={url} readOnly onFocus={(event) => event.target.select()} className="mt-2 w-full border-b border-zinc-200 bg-transparent pb-2 text-sm outline-none focus:border-zinc-900" />
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -53,4 +53,4 @@ const PublishDialog = ({ url, onClose }) => {
   );
 };
 
-export default PublishDialog;
+export default PublishModal;

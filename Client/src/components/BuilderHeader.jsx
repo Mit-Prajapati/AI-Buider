@@ -26,8 +26,9 @@ const BuilderHeader = ({
                 </button>
                 <img src="/logo.svg" alt="" className="invert size-5" />
                 <span className="text-sm font-semibold truncate max-w-38">
-                    v{version}
+                    {projectName}
                 </span>
+                <span className='text-xs text-zinc-500'>v{version}</span>
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
