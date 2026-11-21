@@ -45,17 +45,16 @@ const PriviewPannel = ({ files = {}, projectId, activeFile, setActiveFile, showC
 
 
           <div className='flex-1 overflow-hidden'>
-            {
-              leftTab === 'chat' ? (
-                children
-              ) : (
+            <div hidden={leftTab !== 'chat'} className='h-full'>
+              {children}
+            </div>
+            {leftTab === 'files' && (
                 <FileExplorer
                   files={files}
                   activeFile={activeFile}
                   onFileSelect={setActiveFile}
                 />
-              )
-            }
+            )}
 
           </div>
 

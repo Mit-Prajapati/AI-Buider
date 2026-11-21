@@ -15,10 +15,11 @@ const BuilderHeader = ({
     onLogout,
 }) => {
     return (
-        <header className="h-12 shrink-0 flex items-center justify-between gap-2 border-b  px-3 border-zinc-200 bg-white">
+        <header className="h-12 w-full min-w-0 shrink-0 flex items-center justify-between gap-2 overflow-x-auto whitespace-nowrap border-b px-3 border-zinc-200 bg-white">
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
                 <button
+                    aria-label="Back to projects"
                     onClick={onBack}
                     className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 cursor-pointer">
                     <ArrowLeftIcon size={18} className="text-zinc-400 hover:text-zinc-600" aria-hidden="true" />
@@ -29,7 +30,7 @@ const BuilderHeader = ({
                 </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5">
                 <button onClick={onToggleShowCode}
                     className={`inline-flex items-center  justify-center gap1.5 py-1.5 px-3 border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 text-xs font-medium rounded-lg cursor-pointer bg-white ${showCode ? "bg-zinc-100 text-zinc-900" : ""}`}
                 >

@@ -17,6 +17,7 @@ const PublishDialog = ({ url, onClose }) => {
       await navigator.clipboard.writeText(url);
       toast.success('Public link copied to clipboard!');
     } catch {
+      if (!linkRef.current) return;
       linkRef.current.focus();
       linkRef.current.select();
       toast.error('Could not copy automatically. Copy the selected link.');
