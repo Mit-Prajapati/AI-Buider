@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import BuilderHeader from '../components/BuilderHeader';
 import Loading from '../components/Loading';
-import ChatPannel from '../components/ChatPannel';
-import PriviewPannel from '../components/PriviewPannel';
-import PublishDialog from '../components/PublishDialog';
+import ChatPanel from '../components/ChatPanel';
+import PreviewPanel from '../components/PreviewPanel';
+import PublishModal from '../components/PublishModal';
+import AgentProgressDashboard from '../components/AgentProgressDashboard';
 import api from '../api/api';
 import toast from 'react-hot-toast';
 import { exportProjectZip } from '../utils/exportProject';
@@ -119,17 +120,20 @@ const BuilderPage = () => {
       {/* Main Layout */}
 
       {publishUrl && (
-        <PublishDialog url={publishUrl} onClose={() => setPublishedLink(null)} />
+        <PublishModal url={publishUrl} onClose={() => setPublishedLink(null)} />
       )}
-      <PriviewPannel
+      <PreviewPanel
+        key={id}
         files={activeProject.files}
         projectId={activeProject._id}
         activeFile={activeFile}
         setActiveFile={setActiveFile}
         showCode={showCode}
+        onShowCode={() => setShowCode(true)}
+        progress={<AgentProgressDashboard project={activeProject} busy={chatLoading} />}
       >
-        <ChatPannel messages={activeProject.messages} onSend={handleChat} loading={chatLoading} />
-      </PriviewPannel>
+        <ChatPanel messages={activeProject.messages || []} onSend={handleChat} loading={chatLoading} />
+      </PreviewPanel>
 
 
     </div>
