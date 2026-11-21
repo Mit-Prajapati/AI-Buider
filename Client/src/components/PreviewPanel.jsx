@@ -22,6 +22,32 @@ function ProjectCode({ activeFile }) {
 const PreviewPanel = ({ files = {}, projectId, activeFile, setActiveFile, showCode = false, onShowCode, progress, children }) => {
   const [leftTab, setLeftTab] = useState('chat');
   const fileMap = Object.fromEntries(Object.entries(files).map(([path, file]) => [path, typeof file === 'string' ? file : file?.code ?? file?.content ?? '']));
+  const manifestText = fileMap['/package.json'] ?? fileMap['package.json'];
+  let manifest = {};
+  let invalidManifest = false;
+  if (manifestText !== undefined) {
+    try {
+      manifest = JSON.parse(manifestText);
+      if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+        invalidManifest = true;
+        manifest = {};
+      }
+    } catch {
+      invalidManifest = true;
+    }
+  }
+  const declaredDependencies = {
+    ...manifest.dependencies,
+    ...manifest.devDependencies,
+  };
+  const detectedDependencies = detectDependencies(fileMap);
+  const previewSetup = {
+    dependencies: {
+      ...Object.fromEntries(Object.entries(detectedDependencies).filter(([name]) => !Object.hasOwn(declaredDependencies, name))),
+      ...manifest.dependencies,
+    },
+    devDependencies: manifest.devDependencies ?? {},
+  };
 
   return (
       <div className='min-h-0 flex-1 flex flex-col overflow-hidden md:flex-row'>
@@ -67,12 +93,14 @@ const PreviewPanel = ({ files = {}, projectId, activeFile, setActiveFile, showCo
 
         {/* Preview/Code area */}
         <main className='min-h-0 min-w-0 flex-1 overflow-hidden' aria-label={showCode ? 'Project code' : 'Project preview'}>
-          {Object.keys(files).length > 0 ? (
+          {invalidManifest ? (
+            <p role='alert' className='flex h-full items-center justify-center text-sm text-red-600'>Invalid project package.json.</p>
+          ) : Object.keys(files).length > 0 ? (
             <SandpackProvider
               key={projectId}
               template='react'
               files={fileMap}
-              customSetup={{ dependencies: detectDependencies(fileMap) }}
+              customSetup={previewSetup}
               options={{ activeFile, externalResources: previewResources }}
             >
               <SandpackErrorModal onShowCode={onShowCode} />
