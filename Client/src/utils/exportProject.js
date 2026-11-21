@@ -1,17 +1,19 @@
 import { detectDependencies } from "./sandpackUtils";
 
 export async function exportProjectZip(project) {
-    if (!project) return;
+    if (!project?.files || Object.keys(project.files).length === 0) {
+        throw new Error('No project files to export.');
+    }
     try {
         const JSZip = (await import("jszip")).default;
-        const { saveAs } = await import("file-saver");
+        const { default: saveAs } = await import("file-saver");
 
         const zip = new JSZip();
 
         // Normalize files and detect dependencies from import statements
         const fileMap = {};
         for (const [path, content] of Object.entries(project.files)) {
-            const fileCode = typeof content === "string" ? content : content?.content || "";
+            const fileCode = typeof content === "string" ? content : content?.code ?? content?.content ?? "";
             fileMap[path] = fileCode;
         }
         const detectedDeps = detectDependencies(fileMap);
@@ -113,5 +115,6 @@ createRoot(document.getElementById('root')).render(<App />);
         saveAs(blob, fileName);
     } catch (error) {
         console.error("Export project error:", error);
+        throw error;
     }
 }

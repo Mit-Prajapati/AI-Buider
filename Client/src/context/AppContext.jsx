@@ -230,6 +230,32 @@ export function AppcontextProvider({ children }) {
         }, [user]
     )
 
+    {/* Hanlde chat function */ }
+    const handleChat = useCallback(
+        async (prompt) => {
+            const message = typeof prompt === "string" ? prompt.trim() : "";
+            if (!user || !activeProject?._id || chatLoading || !message) return false;
+
+            const projectId = activeProject._id;
+            setChatLoading(true);
+            try {
+                const { data } = await api.post(`/api/projects/${projectId}/chat`, { prompt: message });
+                setActiveProject(data)
+                if (data.errors && data.errors.length > 0) {
+                    toast.error(`${data.errors.length} revision parch(es) failed`)
+                } else {
+                    toast.success(`updated to version ${data.version}`)
+                }
+            } catch (error) {
+                console.error("Failed to send chat message:", error);
+                toast.error(error?.response?.data?.error || "Failed to send message. Please try again.");
+                return false;
+            } finally {
+                setChatLoading(false);
+            }
+        }, [user, activeProject, chatLoading]
+    )
+
 
 
 
@@ -255,6 +281,7 @@ export function AppcontextProvider({ children }) {
             LoadProject,
             handleGenerate,
             handleDelete,
+            handleChat,
             logout
         }}>
             {children}
