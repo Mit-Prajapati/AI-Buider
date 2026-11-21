@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast"
-import { useNavigate } from "react-router-dom";
+import { matchPath, useLocation, useNavigate } from "react-router-dom";
 // import {setUser} from "../utils/auth";
 // import {setLoadingUser} from "../utils/auth";
 
@@ -13,6 +13,8 @@ const Appcontext = createContext(undefined);
 
 export function AppcontextProvider({ children }) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const routeProjectId = matchPath('/builder/:id', location.pathname)?.params.id;
 
     //Auth States
 
@@ -30,9 +32,21 @@ export function AppcontextProvider({ children }) {
     const [activeFile, setActiveFile] = useState("/App.js");
     const [showCode, setShowCode] = useState(false);
     const projectsRequest = useRef(0);
+    const workspace = useRef(null);
+
+    // Each committed route/session gets its own request ownership scope.
+    useLayoutEffect(() => {
+        workspace.current = { projectId: routeProjectId, routeKey: location.key, load: 0, chat: null };
+        setActiveProject(null);
+        setActiveFile('/App.js');
+        setLoadingActiveProject(Boolean(routeProjectId));
+        setChatLoading(false);
+        return () => { workspace.current = null; };
+    }, [location.key, routeProjectId, user]);
 
     const setSessionUser = useCallback((nextUser) => {
         projectsRequest.current += 1;
+        workspace.current = null;
         setUser(nextUser);
         setProjects([]);
         setLoadingProjects(Boolean(nextUser));
@@ -87,6 +101,9 @@ export function AppcontextProvider({ children }) {
 
     const logout = async () => {
         projectsRequest.current += 1;
+        // Invalidate in-flight work as soon as sign-out starts.
+        if (workspace.current) workspace.current = { ...workspace.current, load: 0, chat: null };
+        setChatLoading(false);
         setLoadingProjects(false);
         try {
             await api.post("/api/auth/logout");
@@ -127,10 +144,14 @@ export function AppcontextProvider({ children }) {
 
     // to Load the Individual Project
     const LoadProject = useCallback(async (id, silent = false) => {
-        if (!user) return;
+        const scope = workspace.current;
+        if (!user || !scope || scope.projectId !== id || scope.routeKey !== location.key || scope.chat) return;
+        const request = ++scope.load;
+        const ownsRequest = () => workspace.current === scope && scope.load === request;
         if (!silent) setLoadingActiveProject(true);
         try {
             const { data } = await api.get(`/api/projects/${id}`);
+            if (!ownsRequest()) return;
             setActiveProject(data);
             // Default File Selection
             const files = Object.keys(data.files);
@@ -152,21 +173,22 @@ export function AppcontextProvider({ children }) {
             }
         }
         catch (error) {
+            if (!ownsRequest()) return;
             console.error("Failed to load project:", error);
             if (!silent) toast.error("Failed to load project. Please try again.");
             navigate("/");
         }
         finally {
-            if (!silent) setLoadingActiveProject(false);
+            if (ownsRequest()) setLoadingActiveProject(false);
         }
 
-    }, [user, navigate]);
+    }, [user, navigate, location.key]);
 
     // Autamatacaly Poll the Active Poll Status
 
     useEffect(() => {
 
-        if (!activeProject?._id || !user) return;
+        if (!activeProject?._id || !user || activeProject._id !== routeProjectId) return;
 
         const isonGoing = activeProject?.status === "generating" || activeProject?.status === "updating" || activeProject?.status === "pending" || activeProject?.status === "revising";
 
@@ -176,12 +198,12 @@ export function AppcontextProvider({ children }) {
                 LoadProject(activeProject._id, true);
             }, 2000);
             return () => clearInterval(interval);
-        } else {
+        } else if (!workspace.current?.chat) {
             setChatLoading(false);
         }
 
 
-    }, [activeProject?._id, activeProject?.status, LoadProject, user])
+    }, [activeProject?._id, activeProject?.status, LoadProject, user, routeProjectId])
 
 
 
@@ -230,6 +252,45 @@ export function AppcontextProvider({ children }) {
         }, [user]
     )
 
+    {/* Hanlde chat function */ }
+    const handleChat = useCallback(
+        async (prompt) => {
+            const message = typeof prompt === "string" ? prompt.trim() : "";
+            if (!user || !activeProject?._id || chatLoading || !message) return false;
+
+            const projectId = activeProject._id;
+            const scope = workspace.current;
+            if (!scope || scope.projectId !== projectId || scope.chat) return false;
+            const request = {};
+            scope.chat = request;
+            scope.load += 1; // Older polls must not overwrite the chat result.
+            const ownsRequest = () => workspace.current === scope && scope.chat === request;
+            let stillGenerating = false;
+            setChatLoading(true);
+            try {
+                const { data } = await api.post(`/api/projects/${projectId}/chat`, { prompt: message });
+                if (!ownsRequest()) return false;
+                stillGenerating = ['generating', 'updating', 'pending', 'revising'].includes(data.status);
+                setActiveProject(data)
+                if (data.errors && data.errors.length > 0) {
+                    toast.error(`${data.errors.length} revision parch(es) failed`)
+                } else {
+                    toast.success(`updated to version ${data.version}`)
+                }
+            } catch (error) {
+                if (!ownsRequest()) return false;
+                console.error("Failed to send chat message:", error);
+                toast.error(error?.response?.data?.error || "Failed to send message. Please try again.");
+                return false;
+            } finally {
+                if (ownsRequest()) {
+                    scope.chat = null;
+                    setChatLoading(stillGenerating);
+                }
+            }
+        }, [user, activeProject, chatLoading]
+    )
+
 
 
 
@@ -255,6 +316,7 @@ export function AppcontextProvider({ children }) {
             LoadProject,
             handleGenerate,
             handleDelete,
+            handleChat,
             logout
         }}>
             {children}

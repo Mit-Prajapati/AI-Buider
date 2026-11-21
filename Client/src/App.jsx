@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import BuilderPage from './pages/BuilderPage'
 import PreviewPage from './pages/PreviewPage'
+import PublishPage from './pages/PublishPage'
 import { Toaster } from 'react-hot-toast'
 
 const App = () => {
@@ -14,6 +15,7 @@ const App = () => {
     <>
       <Toaster />
       <Routes>
+        <Route path='/publish/:id' element={<PublishPage />} />
         {/* Login Routes */}
 
         <Route element={<GuestLayout />}>

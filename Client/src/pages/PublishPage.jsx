@@ -1,8 +1,32 @@
-import React from 'react'
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import api from '../api/api'
+import Loading from '../components/Loading'
+import PriviewPannel from '../components/PriviewPannel'
 
 const PublishPage = () => {
+  const { id } = useParams();
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/api/projects/public/${encodeURIComponent(id)}`)
+      .then(({ data }) => {
+        if (!cancelled) setResult({ id, project: data.published ? data : null });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ id, project: null });
+      });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  if (!result || result.id !== id) return <Loading />;
+  if (!result.project) return <p role="alert" className="p-8 text-center">Website unavailable or not published yet.</p>;
+
   return (
-    <div>PublishPage</div>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <PriviewPannel files={result.project.files} projectId={id} />
+    </div>
   )
 }
 
