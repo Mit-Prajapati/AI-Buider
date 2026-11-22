@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import User, { MAX_BCRYPT_PASSWORD_BYTES } from "../models/User.js";
 
 
 const SESSION_COOKIE_NAME = "session";
@@ -53,6 +53,12 @@ export async function ragister(req,res) {
         return res.status(400).json({ error: "Password must be at least 8 characters long." });
     }
 
+    if (Buffer.byteLength(password, "utf8") > MAX_BCRYPT_PASSWORD_BYTES) {
+        return res.status(400).json({
+            error: `Password must not exceed ${MAX_BCRYPT_PASSWORD_BYTES} UTF-8 bytes.`,
+        });
+    }
+
     try {
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
@@ -95,6 +101,12 @@ export async function login(req,res) {
 
     if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
         return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    if (Buffer.byteLength(password, "utf8") > MAX_BCRYPT_PASSWORD_BYTES) {
+        return res.status(400).json({
+            error: `Password must not exceed ${MAX_BCRYPT_PASSWORD_BYTES} UTF-8 bytes.`,
+        });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
