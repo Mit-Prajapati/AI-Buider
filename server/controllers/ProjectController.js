@@ -84,6 +84,18 @@ export async function createProject(req,res) {
 
 // Background worker to progressive genarate files and update  database in real time 
 
+// Run once before accepting requests: generation workers do not survive restart.
+export async function recoverInterruptedGenerations() {
+    const error = "Generation was interrupted by a server restart. Partial files were kept. Create a new project with the original prompt to retry generation.";
+    await Project.updateMany(
+        { status: "generating" },
+        {
+            $set: { status: "failed", currentFile: null, error },
+            $push: { messages: { role: "assistant", content: error, timestamp: new Date() } },
+        },
+    );
+}
+
  async function runBackgroundGeneration(projectId,prompt) {
     let writes = Promise.resolve();
     let plannedFiles = [];
@@ -341,7 +353,9 @@ export async function updateProjectFiles(req,res) {
             return res.status(404).json({ error: "Project not found." });
         }
 
-        /////////////////////    New Feature ADDEED CHECK IT /........
+        if (project.status === "generating") {
+            return res.status(409).json({ error: "Please wait for initial generation to finish before saving files." });
+        }
 
         const existingFiles =
             project.files && typeof project.files === "object" && !Array.isArray(project.files)

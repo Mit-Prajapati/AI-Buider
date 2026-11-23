@@ -4,6 +4,88 @@
 // Void HTML elements that must be self-closed in JSX
 const VOID_ELEMENTS = ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"];
 
+// Only a > outside attribute quotes and JavaScript expressions ends a JSX tag.
+function findTagEnd(source, start) {
+    let braces = 0;
+    let quote = null;
+    const templates = [];
+    for (let i = start; i < source.length; i++) {
+        const char = source[i];
+        if (quote) {
+            if (char === "\\" && braces > 0) i++;
+            else if (quote === '`' && source.startsWith('${', i)) {
+                templates.push(braces);
+                braces++;
+                quote = null;
+                i++;
+            }
+            else if (char === quote) quote = null;
+            continue;
+        }
+        if (char === '"' || char === "'" || (braces > 0 && char === '`')) {
+            quote = char;
+        } else if (braces > 0 && source.startsWith('/*', i)) {
+            const end = source.indexOf('*/', i + 2);
+            if (end < 0) return -1;
+            i = end + 1;
+        } else if (braces > 0 && source.startsWith('//', i)) {
+            while (i < source.length && source[i] !== '\n' && source[i] !== '\r') i++;
+        } else if (braces > 0 && char === '/') {
+            // A regex literal can contain braces, quotes, and > as ordinary text.
+            const prefix = source.slice(start, i).trimEnd();
+            if (/[({[=,:;!?&|+\-*%^~<>]$|\b(?:return|throw|case|yield|await)$/.test(prefix)) {
+                let characterClass = false;
+                let closed = false;
+                for (i++; i < source.length; i++) {
+                    if (source[i] === '\\') i++;
+                    else if (source[i] === '[') characterClass = true;
+                    else if (source[i] === ']') characterClass = false;
+                    else if (source[i] === '/' && !characterClass) { closed = true; break; }
+                    else if (source[i] === '\n' || source[i] === '\r') break;
+                }
+                if (!closed) return -1;
+            }
+        } else if (char === '{') {
+            braces++;
+        } else if (char === '}') {
+            if (braces === 0) return -1;
+            braces--;
+            if (templates.length && braces === templates.at(-1)) {
+                templates.pop();
+                quote = '`';
+            }
+        } else if (char === '>' && braces === 0) {
+            return i;
+        } else if (char === '<' && braces === 0) {
+            // An incomplete replacement fragment must not consume the next tag.
+            return -1;
+        }
+    }
+    return -1;
+}
+
+function selfCloseVoidElements(source, filePath, warnings, replacement = false) {
+    const startTag = new RegExp(`<(${VOID_ELEMENTS.join('|')})(?=[\\s/>])`, 'gi');
+    const fixed = new Set();
+    const parts = [];
+    let copied = 0;
+    let match;
+    while ((match = startTag.exec(source))) {
+        const end = findTagEnd(source, startTag.lastIndex);
+        if (end < 0) continue;
+        startTag.lastIndex = end + 1;
+        if (source[end - 1] === '/') continue;
+        parts.push(source.slice(copied, end), /\s/.test(source[end - 1]) ? '/' : ' /');
+        copied = end;
+        fixed.add(match[1].toLowerCase());
+    }
+    parts.push(source.slice(copied));
+    for (const tag of fixed) {
+        warnings.push(`${filePath}: Self-closed <${tag}> ${replacement ? 'in replacement' : 'elements'}`);
+    }
+    return parts.join('');
+}
+
 // Validate and auto-fix common AI-generated code issues
 export function validateAndFixCode(code, filePath, context) {
     const warnings = [];
@@ -49,14 +131,7 @@ export function validateAndFixCode(code, filePath, context) {
     }
 
     // 4. Self-close void elements that aren't self-closed
-    for (const tag of VOID_ELEMENTS) {
-        // Match <tag ... > that is NOT already self-closed (no / before >)
-        const voidRegex = new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, "gi");
-        if (voidRegex.test(code)) {
-            code = code.replace(new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, "gi"), (match, attrs) => `<${tag}${attrs || ""} />`);
-            warnings.push(`${filePath}: Self-closed <${tag}> elements`);
-        }
-    }
+    code = selfCloseVoidElements(code, filePath, warnings);
 
     // 5. Ensure exactly one default export exists
     const defaultExportCount = (code.match(/export\s+default\s+/g) || []).length;
@@ -95,16 +170,12 @@ export function validateAndFixCode(code, filePath, context) {
         return " =";
     });
 
-    // Remove simple type annotations from function parameters like (props: any)
-    // But be careful not to break destructured defaults like { name = 'default' }
-    code = code.replace(/(\([^)]*?)\s*:\s*(?:string|number|boolean|any|object|void)\s*([,)])/g, (match, before, after) => {
-        warnings.push(`${filePath}: Removed TypeScript type annotation`);
-        return `${before}${after}`;
-    });
+    // Parameter annotation removal requires a TypeScript parser: a colon inside
+    // parentheses may belong to an ordinary JavaScript object property.
 
     // 8. Ensure React import exists if JSX is used
     const hasJSX = /<[A-Za-z]/.test(code);
-    const hasReactImport = /import\s+React/.test(code);
+    const hasReactImport = /\bimport\s+(?:React(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+[\w$]+))?|\*\s+as\s+React)\s+from\s*(['"])react\1/.test(code);
     if (hasJSX && !hasReactImport) {
         code = `import React from 'react';\n${code}`;
         warnings.push(`${filePath}: Added missing React import`);
@@ -148,13 +219,7 @@ export function validateRevisionContent(content, filePath, op) {
     }
 
     // Self-close void elements
-    for (const tag of VOID_ELEMENTS) {
-        const voidRegex = new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, "gi");
-        if (voidRegex.test(content)) {
-            content = content.replace(new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, "gi"), (match, attrs) => `<${tag}${attrs || ""} />`);
-            warnings.push(`${filePath}: Self-closed <${tag}> in replacement`);
-        }
-    }
+    content = selfCloseVoidElements(content, filePath, warnings, true);
 
     return { content, warnings };
 }

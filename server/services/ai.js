@@ -141,25 +141,9 @@ export async function generateProject(prompt, callbacks){
         const failedPaths = pendingFiles.map((f)=>f.path).join(", ");
         console.error(`[AI] Failed to generate ${pendingFiles.length} files after all retry rounds: ${failedPaths}`);
 
-        if (pendingFiles.some((f) => f.path === "/App.js")){
-            const ext = file.path.split(".").pop()?.toLowerCase();
-
-            if(ext === "css"){
-                files[file.path] = `/* ${file.description} — Generation failed, please retry */\n`
-            }else{
-                files[file.path] = "import React from 'react';\n\n" + 
-                `// ⚠️ This file could not be generated. Please retry.\n` +
-                `// Purpose: ${file.description}\n\n` + 
-                "export default function Placeholder() {\n" +
-                "  return (\n" +
-                    "    <div className='p-8 text-center text-zinc-400'>\n" +
-                    "      <p>⚠️ Component failed to generate. Please try again.</p>\n" +
-                    "    </div>\n" +
-                    "  );\n" +
-                    "}\n";
-            }
+        if (pendingFiles.some((f) => f.path === "/App.js")) {
+            throw new Error(`AI did not generate /App.js entry point after all retry rounds. Failed files: ${failedPaths}. Please try again.`);
         }
-
     }
 
     if(!files["/App.js"]){

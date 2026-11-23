@@ -56,7 +56,7 @@ export async function chat(req,res) {
         if (!Object.keys(currentFiles).length) {
             return res.status(400).json({ error: "Generate project files before requesting a revision." });
         }
-        const originalFiles = JSON.stringify(project.files);
+        const reviewedFilesRevision = project.filesRevision ?? 0;
 
         // Set status to revising and save the user prompt immediately.
         project.status = "revising";
@@ -91,39 +91,52 @@ export async function chat(req,res) {
             throw new Error("Revision removed or emptied the project entry point.");
         }
 
-        // Reload after the AI call and avoid overwriting manual edits made meanwhile.
-        project = await Project.findOne({ _id: projectId, owner: ownerId });
-        if (!project) return res.status(404).json({ error: "Project not found." });
-        if (JSON.stringify(project.files) !== originalFiles) {
-            project.status = "completed";
-            project.error = "Project files changed during revision. Please send the request again.";
-            project.messages.push({ role: "assistant", content: project.error });
-            await project.save();
-            return res.status(409).json({ error: project.error });
-        }
-
-        // Update the project in the database using document.save().
-        project.files = files;
-        project.markModified("files");
-        if (applied.length > 0) project.version += 1;
-        project.filesGenerated = Object.keys(files);
-        project.errors = errors;
-        project.status = errors.length > 0 && applied.length === 0 ? "failed" : "completed";
-        project.currentFile = null;
-        project.error = errors.length > 0 ? "Some revision operations could not be applied." : null;
-        project.messages.push({
+        const message = {
             role: "assistant",
             content: errors.length > 0
                 ? `Applied ${applied.length} operation(s). Failed operations:\n${errors.join("\n")}`
                 : result.description || "Revision complete.",
             timestamp: new Date(),
-        });
-        await project.save();
+        };
+        // Compare and commit in one write. Missing markers belong to legacy projects.
+        // Query updates bypass save middleware, so advance the marker explicitly.
+        project = await Project.findOneAndUpdate(
+            {
+                _id: projectId,
+                owner: ownerId,
+                filesRevision: reviewedFilesRevision === 0 ? { $in: [0, null] } : reviewedFilesRevision,
+            },
+            {
+                $set: {
+                    files,
+                    filesGenerated: Object.keys(files),
+                    errors,
+                    status: errors.length > 0 && applied.length === 0 ? "failed" : "completed",
+                    currentFile: null,
+                    error: errors.length > 0 ? "Some revision operations could not be applied." : null,
+                },
+                $inc: { filesRevision: 1, ...(applied.length > 0 ? { version: 1 } : {}) },
+                $push: { messages: message },
+            },
+            { returnDocument: "after", runValidators: true },
+        );
+        if (!project) {
+            const error = "Project files changed during revision. Please send the request again.";
+            await Project.updateOne(
+                { _id: projectId, owner: ownerId, status: "revising" },
+                {
+                    $set: { status: "completed", error },
+                    $push: { messages: { role: "assistant", content: error, timestamp: new Date() } },
+                },
+            );
+            return res.status(409).json({ error });
+        }
 
         // Match getProject: the client receives plain source text for each file.
         const response = project.toObject();
         delete response.owner;
         delete response.__v;
+        delete response.filesRevision;
         response.files = Object.fromEntries(Object.entries(files).map(([path, entry]) => [path, entry.content]));
         response.filesPlanned = response.filesplaned || [];
         delete response.filesplaned;

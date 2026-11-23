@@ -1,4 +1,4 @@
-// Fix double-escaped newlines/quotes from AI JSON string output
+// Normalize line endings and double-escaped newlines from AI JSON string output.
 export function normalizeContent(content) {
     if (!content) return "";
 
@@ -23,10 +23,6 @@ export function normalizeContent(content) {
             .replace(/\\r/g, "")
             .replace(/\\\\/g, "\\");
     }
-
-    // Always clean up backslash-escaped quotes (e.g. className=\"relative\") in code.
-    // This is safe because "contains escaped quotes" is always invalid syntax in JSX/React.
-    content = content.replace(/(\w+)=\\"([^"]*?)\\"/g, '$1="$2"');
 
     return content;
 }

@@ -58,6 +58,10 @@ const ProjectSchema = new Schema(
             default: 1,
             min: 1,
         },
+        filesRevision: {
+            type: Number,
+            // No default: saving legacy metadata must not reset a concurrent increment.
+        },
         status: {
             type: String,
             enum: [
@@ -107,6 +111,12 @@ const ProjectSchema = new Schema(
     },
     { timestamps: true },
 );
+
+// Keep the marker in the same atomic write as files, including manual saves
+// and progressive generation. $inc also handles saves from stale documents.
+ProjectSchema.pre("save", function () {
+    if (this.isModified("files")) this.$inc("filesRevision", 1);
+});
 
 const Project = mongoose.models.Project || mongoose.model("Project", ProjectSchema);
 
