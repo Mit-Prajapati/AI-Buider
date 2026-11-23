@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connectToDatabase } from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
+import projectRouter from "./routes/projectsRoutes.js";
 
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(cors({origin:process.env.ORIGINS.split(","),credentials:true}))
 app.use(cookieParser())
 
 app.use(express.json())
+app.use("/api/projects",projectRouter)
 
 
 
