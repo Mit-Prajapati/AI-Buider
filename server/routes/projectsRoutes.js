@@ -32,7 +32,7 @@ projectRouter.put("/:id/files",updateProjectFiles)
 projectRouter.post("/:id/publish",publishProjects)
 
 // Chat
-projectRouter.post("/:id/chat",ch``)
+projectRouter.post("/:id/chat",chat)
 
 
 export  default projectRouter;
