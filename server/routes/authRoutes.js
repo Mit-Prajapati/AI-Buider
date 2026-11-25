@@ -4,6 +4,7 @@ import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const authRouter = Router();
 
+authRouter.post("/register",ragister)
 authRouter.post("/ragister",ragister)
 authRouter.post("/login",login)
 authRouter.post("/logout",logout)
